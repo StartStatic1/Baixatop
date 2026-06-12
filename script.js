@@ -1,188 +1,113 @@
 /**
  * DOUYIN DOWNLOADER - baixatop.vercel.app
- * Usa backend próprio no Vercel
+ * Versão final simplificada
  */
 
-const CONFIG = {
-    API_BASE: 'https://baixatop.vercel.app/api',
-    USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-};
+const API_URL = 'https://baixatop.vercel.app/api/download';
 
-function $(selector) { return document.querySelector(selector); }
+function $(s) { return document.querySelector(s); }
 
-function extractUrl(text) {
-    const patterns = [
-        /https?:\/\/v\.douyin\.com\/[A-Za-z0-9]+\/?/,
-        /https?:\/\/www\.douyin\.com\/video\/\d+/,
-        /https?:\/\/www\.douyin\.com\/discover\?modal_id=\d+/,
-        /https?:\/\/www\.iesdouyin\.com\/share\/video\/\d+/,
-    ];
-    for (const p of patterns) {
-        const m = text.match(p);
-        if (m) return m[0];
-    }
-    return null;
+function extractUrl(t) {
+    const m = t.match(/https?:\/\/[^\s]+douyin[^\s]*/);
+    return m ? m[0] : null;
 }
 
-function formatNumber(num) {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-    return num.toString();
+function fmt(n) {
+    if (n >= 1e6) return (n/1e6).toFixed(1)+'M';
+    if (n >= 1e3) return (n/1e3).toFixed(1)+'K';
+    return n+'';
 }
 
-function formatDuration(s) {
-    if (!s || s <= 0) return '';
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${m}:${sec.toString().padStart(2, '0')}`;
+function toast(msg, err) {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:'+(err?'#ff0050':'#00f2ea')+';color:#000;padding:12px 24px;border-radius:10px;z-index:9999;font-weight:600;';
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(()=>t.remove(),3000);
 }
 
-function showToast(msg, type = 'success') {
-    const existing = $('.toast');
-    if (existing) existing.remove();
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${msg}`;
-    document.body.appendChild(toast);
-    requestAnimationFrame(() => toast.classList.add('show'));
-    setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 3000);
-}
+async function analyze() {
+    const input = $('#urlInput').value.trim();
+    if (!input) { toast('Cole um link!', true); return; }
 
-async function getVideoData(url) {
-    const apiUrl = `${CONFIG.API_BASE}/download?url=${encodeURIComponent(url)}&action=data`;
-    const response = await fetch(apiUrl, {
-        headers: { 'Accept': 'application/json', 'User-Agent': CONFIG.USER_AGENT }
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-}
+    let url = extractUrl(input);
+    if (!url) { toast('Link do Douyin não encontrado', true); return; }
 
-function setLoading(loading) {
-    const btn = $('#downloadBtn');
-    btn.querySelector('.btn-text').style.display = loading ? 'none' : 'inline-flex';
-    btn.querySelector('.btn-loader').style.display = loading ? 'inline-flex' : 'none';
-    btn.disabled = loading;
-}
+    $('#downloadBtn').disabled = true;
+    $('#downloadBtn').textContent = 'Analisando...';
 
-function hideAllResults() {
-    $('#resultArea').style.display = 'none';
-    $('#infoArea').style.display = 'none';
-    $('#errorArea').style.display = 'none';
-}
+    try {
+        const res = await fetch(API_URL + '?url=' + encodeURIComponent(url) + '&action=data');
+        const data = await res.json();
 
-function showResult(data) {
-    hideAllResults();
-    const videoData = data.data || {};
-    const stats = videoData.statistics || {};
-    const author = videoData.author || {};
-    const video = videoData.video || {};
-
-    $('#videoTitle').textContent = videoData.desc || 'Sem título';
-    $('#authorName').textContent = author.nickname || 'Desconhecido';
-    $('#authorHandle').textContent = author.unique_id ? `@${author.unique_id}` : '';
-
-    const avatarUrl = author.avatar_thumb?.url_list?.[0] || author.avatar_medium?.url_list?.[0] || '';
-    $('#authorAvatar').src = avatarUrl;
-    $('#authorAvatar').onerror = function() { this.style.display = 'none'; };
-
-    const coverUrl = video.cover?.url_list?.[0] || video.dynamic_cover?.url_list?.[0] || '';
-    $('#videoCover').src = coverUrl;
-
-    $('#videoDuration').textContent = formatDuration(video.duration / 1000);
-    $('#statLikes').textContent = formatNumber(stats.digg_count || 0);
-    $('#statShares').textContent = formatNumber(stats.share_count || 0);
-    $('#statComments').textContent = formatNumber(stats.comment_count || 0);
-    $('#statViews').textContent = formatNumber(stats.play_count || 0);
-
-    const playAddr = video.play_addr || {};
-    const videoUrl = playAddr.url_list?.[0] || '';
-    const nwmVideoUrl = video.nwm_video_url || videoUrl;
-    const music = videoData.music || {};
-    const audioUrl = music.play_url?.url_list?.[0] || '';
-
-    const dl = $('#downloadLink');
-    const dlAudio = $('#downloadAudioLink');
-
-    if (nwmVideoUrl) {
-        dl.style.display = 'inline-flex';
-        dl.onclick = (e) => { e.preventDefault(); downloadFile(nwmVideoUrl, `douyin_${videoData.aweme_id || 'video'}.mp4`); };
-    } else dl.style.display = 'none';
-
-    if (audioUrl) {
-        dlAudio.style.display = 'inline-flex';
-        dlAudio.onclick = (e) => { e.preventDefault(); downloadFile(audioUrl, `douyin_${videoData.aweme_id || 'audio'}.mp3`); };
-    } else dlAudio.style.display = 'none';
-
-    $('#copyLinkBtn').onclick = () => {
-        if (nwmVideoUrl) navigator.clipboard.writeText(nwmVideoUrl).then(() => showToast('Link copiado!'));
-    };
-
-    $('#resultArea').style.display = 'block';
-    $('#resultArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function showInfo(data) {
-    hideAllResults();
-    const jsonStr = JSON.stringify(data, null, 2);
-    $('#jsonOutput').textContent = jsonStr;
-    $('#copyJsonBtn').onclick = () => navigator.clipboard.writeText(jsonStr).then(() => showToast('JSON copiado!'));
-    $('#infoArea').style.display = 'block';
-    $('#infoArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function showError(title, message) {
-    hideAllResults();
-    $('#errorTitle').textContent = title;
-    $('#errorMessage').textContent = message;
-    $('#retryBtn').onclick = () => { hideAllResults(); $('#downloadBtn').click(); };
-    $('#errorArea').style.display = 'block';
-}
-
-function downloadFile(url, filename) {
-    showToast('Iniciando download...');
-    const a = document.createElement('a');
-    a.href = url; a.download = filename; a.target = '_blank';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    showToast('Download iniciado!');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    $('#pasteBtn').addEventListener('click', async () => {
-        try {
-            $('#urlInput').value = await navigator.clipboard.readText();
-            showToast('Texto colado!');
-        } catch { showToast('Não foi possível colar', 'error'); }
-    });
-
-    $('#downloadBtn').addEventListener('click', async () => {
-        const input = $('#urlInput').value.trim();
-        if (!input) { showToast('Cole um link do Douyin!', 'error'); $('#urlInput').focus(); return; }
-
-        let url = extractUrl(input);
-        if (!url) {
-            if (input.includes('douyin.com') || input.includes('iesdouyin.com')) url = input;
-            else { showToast('Link do Douyin não encontrado', 'error'); return; }
+        if (data.status !== 'success') {
+            throw new Error(data.message || 'Falha na API');
         }
 
-        const infoOnly = $('#infoOnlyCheck').checked;
-        setLoading(true); hideAllResults();
+        showResult(data.data);
 
-        try {
-            const data = await getVideoData(url);
-            if (!data || data.status !== 'success') throw new Error(data?.message || 'Falha ao analisar');
-            infoOnly ? showInfo(data) : showResult(data);
-        } catch (error) {
-            showError('Erro ao baixar', error.message || 'Verifique o console (F12) para detalhes');
-        } finally { setLoading(false); }
-    });
+    } catch (e) {
+        console.error(e);
+        toast('Erro: ' + e.message, true);
+    } finally {
+        $('#downloadBtn').disabled = false;
+        $('#downloadBtn').textContent = 'Analisar & Baixar';
+    }
+}
 
+function showResult(d) {
+    const v = d.video || {};
+    const a = d.author || {};
+    const s = d.statistics || {};
+
+    // Monta HTML do resultado
+    const html = `
+    <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:16px;padding:20px;margin:20px 0;backdrop-filter:blur(10px);">
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+            <img src="${a.avatar_thumb?.url_list?.[0] || ''}" style="width:44px;height:44px;border-radius:50%;border:2px solid #ff0050;" onerror="this.style.display='none'">
+            <div>
+                <div style="font-weight:600;">${a.nickname || 'Desconhecido'}</div>
+                <div style="color:#6b6b7b;font-size:0.85rem;">${a.unique_id ? '@'+a.unique_id : ''}</div>
+            </div>
+        </div>
+        <div style="font-size:1rem;margin-bottom:16px;color:#a0a0b0;">${d.desc || 'Sem título'}</div>
+        <div style="display:flex;gap:20px;margin-bottom:20px;flex-wrap:wrap;color:#6b6b7b;font-size:0.85rem;">
+            <span>❤️ ${fmt(s.digg_count||0)}</span>
+            <span>↗️ ${fmt(s.share_count||0)}</span>
+            <span>💬 ${fmt(s.comment_count||0)}</span>
+            <span>👁️ ${fmt(s.play_count||0)}</span>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <a href="${v.play_addr?.url_list?.[0] || ''}" target="_blank" style="background:linear-gradient(135deg,#ff0050,#d60042);color:#fff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:8px;">
+                ⬇️ Baixar Vídeo
+            </a>
+            <button onclick="copyLink('${v.play_addr?.url_list?.[0] || ''}')" style="background:rgba(255,255,255,0.08);color:#fff;padding:12px 20px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);font-weight:600;">
+                📋 Copiar Link
+            </button>
+        </div>
+    </div>`;
+
+    const resultDiv = document.createElement('div');
+    resultDiv.innerHTML = html;
+
+    // Remove resultado anterior se existir
+    const old = $('#resultArea');
+    if (old) old.remove();
+
+    resultDiv.id = 'resultArea';
+    $('.downloader-box').after(resultDiv);
+    resultDiv.scrollIntoView({behavior:'smooth'});
+}
+
+function copyLink(url) {
+    if (!url) { toast('Sem link para copiar', true); return; }
+    navigator.clipboard.writeText(url).then(() => toast('Link copiado!'));
+}
+
+// Eventos
+document.addEventListener('DOMContentLoaded', () => {
+    $('#downloadBtn').addEventListener('click', analyze);
     $('#urlInput').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#downloadBtn').click(); }
-    });
-
-    document.querySelectorAll('a[href^="#"]').forEach(a => {
-        a.addEventListener('click', function(e) { e.preventDefault(); document.querySelector(this.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth' }); });
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); analyze(); }
     });
 });
-
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
