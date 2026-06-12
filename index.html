@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Douyin Downloader - Baixar Vídeos do Douyin</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <div class="bg-animation">
+        <div class="bg-circle"></div>
+        <div class="bg-circle"></div>
+        <div class="bg-circle"></div>
+    </div>
+
+    <header class="header">
+        <div class="logo">
+            <i class="fab fa-tiktok"></i>
+            <span>Douyin<span class="highlight">Downloader</span></span>
+        </div>
+        <nav class="nav">
+            <a href="#" class="nav-link active">Início</a>
+            <a href="#como-usar" class="nav-link">Como Usar</a>
+            <a href="https://github.com" target="_blank" class="nav-link">
+                <i class="fab fa-github"></i> GitHub
+            </a>
+        </nav>
+    </header>
+
+    <main class="main">
+        <section class="hero">
+            <h1 class="hero-title">
+                Baixe vídeos do <span class="gradient-text">Douyin</span><br>
+                sem marca d'água
+            </h1>
+            <p class="hero-subtitle">
+                Cole o link do vídeo ou o texto de compartilhamento e baixe em segundos.
+                Rápido, gratuito e sem anúncios.
+            </p>
+        </section>
+
+        <section class="downloader-box">
+            <div class="input-wrapper">
+                <i class="fas fa-link input-icon"></i>
+                <textarea 
+                    id="urlInput" 
+                    class="url-input" 
+                    placeholder="Cole o link do Douyin aqui...&#10;Ex: https://v.douyin.com/3UfndwxgX10/&#10;Ou o texto completo de compartilhamento"
+                    rows="3"
+                ></textarea>
+                <button id="pasteBtn" class="paste-btn" title="Colar">
+                    <i class="fas fa-paste"></i>
+                </button>
+            </div>
+
+            <div class="options-row">
+                <label class="checkbox-wrapper">
+                    <input type="checkbox" id="watermarkCheck">
+                    <span class="checkmark"></span>
+                    <span class="checkbox-label">Com marca d'água</span>
+                </label>
+                <label class="checkbox-wrapper">
+                    <input type="checkbox" id="infoOnlyCheck">
+                    <span class="checkmark"></span>
+                    <span class="checkbox-label">Apenas informações</span>
+                </label>
+            </div>
+
+            <button id="downloadBtn" class="download-btn">
+                <span class="btn-text">
+                    <i class="fas fa-download"></i>
+                    Analisar & Baixar
+                </span>
+                <span class="btn-loader" style="display:none;">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    Analisando...
+                </span>
+            </button>
+        </section>
+
+        <!-- Área de Resultado -->
+        <section id="resultArea" class="result-area" style="display:none;">
+            <div class="result-card">
+                <div class="video-preview">
+                    <img id="videoCover" src="" alt="Capa do vídeo">
+                    <div class="play-overlay">
+                        <i class="fas fa-play"></i>
+                    </div>
+                    <div class="video-duration" id="videoDuration"></div>
+                </div>
+
+                <div class="video-info">
+                    <div class="author-row">
+                        <img id="authorAvatar" src="" alt="Avatar" class="author-avatar">
+                        <div class="author-details">
+                            <span id="authorName" class="author-name"></span>
+                            <span id="authorHandle" class="author-handle"></span>
+                        </div>
+                    </div>
+
+                    <p id="videoTitle" class="video-title"></p>
+
+                    <div class="stats-row">
+                        <div class="stat-item">
+                            <i class="fas fa-heart"></i>
+                            <span id="statLikes"></span>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-share"></i>
+                            <span id="statShares"></span>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-comment"></i>
+                            <span id="statComments"></span>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-eye"></i>
+                            <span id="statViews"></span>
+                        </div>
+                    </div>
+
+                    <div class="download-actions">
+                        <a id="downloadLink" href="#" target="_blank" class="action-btn primary">
+                            <i class="fas fa-download"></i>
+                            Baixar Vídeo (MP4)
+                        </a>
+                        <a id="downloadAudioLink" href="#" target="_blank" class="action-btn secondary">
+                            <i class="fas fa-music"></i>
+                            Baixar Áudio (MP3)
+                        </a>
+                        <button id="copyLinkBtn" class="action-btn ghost">
+                            <i class="fas fa-copy"></i>
+                            Copiar Link
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Área de Informações (JSON) -->
+        <section id="infoArea" class="info-area" style="display:none;">
+            <div class="info-card">
+                <div class="info-header">
+                    <h3><i class="fas fa-code"></i> Dados Brutos da API</h3>
+                    <button id="copyJsonBtn" class="copy-json-btn">
+                        <i class="fas fa-copy"></i> Copiar JSON
+                    </button>
+                </div>
+                <pre id="jsonOutput" class="json-output"></pre>
+            </div>
+        </section>
+
+        <!-- Erro -->
+        <section id="errorArea" class="error-area" style="display:none;">
+            <div class="error-card">
+                <i class="fas fa-exclamation-circle"></i>
+                <h3 id="errorTitle">Erro</h3>
+                <p id="errorMessage"></p>
+                <button id="retryBtn" class="action-btn primary">
+                    <i class="fas fa-redo"></i> Tentar Novamente
+                </button>
+            </div>
+        </section>
+
+        <section id="como-usar" class="how-to">
+            <h2 class="section-title">Como usar</h2>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <i class="fas fa-copy"></i>
+                    <h3>Copie o link</h3>
+                    <p>No app Douyin, clique em "Compartilhar" e copie o link ou o texto completo.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <i class="fas fa-paste"></i>
+                    <h3>Cole aqui</h3>
+                    <p>Cole o link ou texto na caixa acima e clique em "Analisar & Baixar".</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <i class="fas fa-download"></i>
+                    <h3>Baixe o vídeo</h3>
+                    <p>Clique no botão de download para salvar o vídeo sem marca d'água.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="features">
+            <h2 class="section-title">Recursos</h2>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <i class="fas fa-bolt"></i>
+                    <h4>Rápido</h4>
+                    <p>Download em segundos com servidores otimizados.</p>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-eye-slash"></i>
+                    <h4>Sem Marca d'Água</h4>
+                    <p>Baixe vídeos limpos, sem logo do Douyin.</p>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-mobile-alt"></i>
+                    <h4>Responsivo</h4>
+                    <p>Funciona perfeitamente no celular e desktop.</p>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-shield-alt"></i>
+                    <h4>Seguro</h4>
+                    <p>Sem anúncios, sem rastreamento, 100% privado.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>Douyin Downloader - Ferramenta educacional para uso pessoal.</p>
+        <p class="footer-small">Respeite os direitos autorais dos criadores.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
